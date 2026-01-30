@@ -614,7 +614,7 @@ def calendar(
             if not search_text:
                 return "Search text is required for search operation"
             
-            events = calendar_handler.search_events_db(search_text, limit, from_date, to_date, calendar_name)
+            events = calendar_handler.search_events(search_text, limit, from_date, to_date)
             if events:
                 formatted_events = []
                 for event in events:
@@ -626,7 +626,7 @@ def calendar(
                 return f"No events found matching '{search_text}'{filter_info}"
                 
         elif operation == "list":
-            events = calendar_handler.get_events_db(limit, from_date, to_date, calendar_name)
+            events = calendar_handler.get_events(limit, from_date, to_date)
             if events:
                 formatted_events = []
                 for event in events:

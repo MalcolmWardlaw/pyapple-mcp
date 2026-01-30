@@ -142,6 +142,22 @@ On first use, macOS will prompt for various permissions. Grant access to:
 6. **Reminders** - for reminder management
 7. **Automation** - for controlling applications via AppleScript
 
+## Configuration
+
+You can customize pyapple-mcp behavior by creating a config file at `~/.config/pyapple-mcp/config.json`.
+
+### Available Options
+
+```json
+{
+  "excluded_calendars": ["Calendar Name 1", "Calendar Name 2"]
+}
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `excluded_calendars` | array of strings | Calendar names to exclude from all queries |
+
 ## Troubleshooting
 
 ### Common Issues

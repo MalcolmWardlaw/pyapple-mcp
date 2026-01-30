@@ -7,11 +7,26 @@ Provides functionality to search, create, and manage calendar events using the m
 import logging
 import sqlite3
 import os
+import json
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
 from .applescript import applescript
 
 logger = logging.getLogger(__name__)
+
+# Load user config from ~/.config/pyapple-mcp/config.json
+def _load_config() -> Dict[str, Any]:
+    config_path = os.path.expanduser("~/.config/pyapple-mcp/config.json")
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning(f"Failed to load config from {config_path}: {e}")
+    return {}
+
+_config = _load_config()
+EXCLUDED_CALENDARS: List[str] = _config.get("excluded_calendars", [])
 
 class CalendarHandler:
     """Handler for Apple Calendar app integration."""
@@ -317,6 +332,14 @@ class CalendarHandler:
         # Escape quotes in search text
         safe_search_text = search_text.replace('"', '\\"')
         
+        # Build excluded calendars list for AppleScript
+        if EXCLUDED_CALENDARS:
+            escaped_names = [f'"{name}"' for name in EXCLUDED_CALENDARS]
+            excluded_list = "{" + ", ".join(escaped_names) + "}"
+            skip_condition = f"if title of aCalendar is not in {excluded_list} then"
+        else:
+            skip_condition = "if true then"  # No exclusions
+        
         script = f'''
         tell application "Calendar"
             set eventsList to {{}}
@@ -331,38 +354,42 @@ class CalendarHandler:
                 repeat with aCalendar in calendars
                     if eventCount >= eventLimit then exit repeat
                     
-                    -- Better date range logic: find events that overlap with our date range
-                    set calendarEvents to (every event of aCalendar whose (start date <= endDate) and (end date >= startDate))
+                    -- Skip excluded calendars
+                    {skip_condition}
                     
-                    repeat with anEvent in calendarEvents
-                        if eventCount >= eventLimit then exit repeat
+                        -- Better date range logic: find events that overlap with our date range
+                        set calendarEvents to (every event of aCalendar whose (start date <= endDate) and (end date >= startDate))
                         
-                        set eventTitle to summary of anEvent
-                        
-                        -- Handle potentially empty values
-                        try
-                            set eventLocation to location of anEvent
-                        on error
-                            set eventLocation to ""
-                        end try
-                        
-                        try
-                            set eventDescription to description of anEvent
-                        on error
-                            set eventDescription to ""
-                        end try
-                        
-                        if (eventTitle contains searchText) or (eventLocation contains searchText) or (eventDescription contains searchText) then
-                            set eventStart to start date of anEvent
-                            set eventEnd to end date of anEvent
-                            set eventCalendar to title of aCalendar
-                            set eventUID to uid of anEvent
+                        repeat with anEvent in calendarEvents
+                            if eventCount >= eventLimit then exit repeat
                             
-                            set eventInfo to (eventTitle & "|" & eventLocation & "|" & eventDescription & "|" & (eventStart as string) & "|" & (eventEnd as string) & "|" & eventCalendar & "|" & eventUID)
-                            set end of eventsList to eventInfo
-                            set eventCount to eventCount + 1
-                        end if
-                    end repeat
+                            set eventTitle to summary of anEvent
+                            
+                            -- Handle potentially empty values
+                            try
+                                set eventLocation to location of anEvent
+                            on error
+                                set eventLocation to ""
+                            end try
+                            
+                            try
+                                set eventDescription to description of anEvent
+                            on error
+                                set eventDescription to ""
+                            end try
+                            
+                            if (eventTitle contains searchText) or (eventLocation contains searchText) or (eventDescription contains searchText) then
+                                set eventStart to start date of anEvent
+                                set eventEnd to end date of anEvent
+                                set eventCalendar to title of aCalendar
+                                set eventUID to uid of anEvent
+                                
+                                set eventInfo to (eventTitle & "|" & eventLocation & "|" & eventDescription & "|" & (eventStart as string) & "|" & (eventEnd as string) & "|" & eventCalendar & "|" & eventUID)
+                                set end of eventsList to eventInfo
+                                set eventCount to eventCount + 1
+                            end if
+                        end repeat
+                    end if
                 end repeat
                 
                 set AppleScript's text item delimiters to ";"
@@ -446,6 +473,14 @@ class CalendarHandler:
             logger.error(f"Date parsing error: {e}")
             return []
         
+        # Build excluded calendars list for AppleScript
+        if EXCLUDED_CALENDARS:
+            escaped_names = [f'"{name}"' for name in EXCLUDED_CALENDARS]
+            excluded_list = "{" + ", ".join(escaped_names) + "}"
+            skip_condition = f"if title of aCalendar is not in {excluded_list} then"
+        else:
+            skip_condition = "if true then"  # No exclusions
+        
         script = f'''
         tell application "Calendar"
             set eventsList to {{}}
@@ -459,36 +494,40 @@ class CalendarHandler:
                 repeat with aCalendar in calendars
                     if eventCount >= eventLimit then exit repeat
                     
-                    -- Better date range logic: find events that overlap with our date range
-                    set calendarEvents to (every event of aCalendar whose (start date <= endDate) and (end date >= startDate))
+                    -- Skip excluded calendars
+                    {skip_condition}
                     
-                    repeat with anEvent in calendarEvents
-                        if eventCount >= eventLimit then exit repeat
+                        -- Better date range logic: find events that overlap with our date range
+                        set calendarEvents to (every event of aCalendar whose (start date <= endDate) and (end date >= startDate))
                         
-                        set eventTitle to summary of anEvent
-                        
-                        -- Handle potentially empty values
-                        try
-                            set eventLocation to location of anEvent
-                        on error
-                            set eventLocation to ""
-                        end try
-                        
-                        try
-                            set eventDescription to description of anEvent
-                        on error
-                            set eventDescription to ""
-                        end try
-                        
-                        set eventStart to start date of anEvent
-                        set eventEnd to end date of anEvent
-                        set eventCalendar to title of aCalendar
-                        set eventUID to uid of anEvent
-                        
-                        set eventInfo to (eventTitle & "|" & eventLocation & "|" & eventDescription & "|" & (eventStart as string) & "|" & (eventEnd as string) & "|" & eventCalendar & "|" & eventUID)
-                        set end of eventsList to eventInfo
-                        set eventCount to eventCount + 1
-                    end repeat
+                        repeat with anEvent in calendarEvents
+                            if eventCount >= eventLimit then exit repeat
+                            
+                            set eventTitle to summary of anEvent
+                            
+                            -- Handle potentially empty values
+                            try
+                                set eventLocation to location of anEvent
+                            on error
+                                set eventLocation to ""
+                            end try
+                            
+                            try
+                                set eventDescription to description of anEvent
+                            on error
+                                set eventDescription to ""
+                            end try
+                            
+                            set eventStart to start date of anEvent
+                            set eventEnd to end date of anEvent
+                            set eventCalendar to title of aCalendar
+                            set eventUID to uid of anEvent
+                            
+                            set eventInfo to (eventTitle & "|" & eventLocation & "|" & eventDescription & "|" & (eventStart as string) & "|" & (eventEnd as string) & "|" & eventCalendar & "|" & eventUID)
+                            set end of eventsList to eventInfo
+                            set eventCount to eventCount + 1
+                        end repeat
+                    end if
                 end repeat
                 
                 set AppleScript's text item delimiters to ";"
