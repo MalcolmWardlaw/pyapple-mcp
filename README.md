@@ -19,27 +19,16 @@ A Python implementation of Apple-native tools for the [Model Context Protocol (M
 
 ## Quick Installation
 
-### Automated Setup (Recommended)
+### Using uv (Recommended)
 
-```bash
-# Install pyapple-mcp
-pip install pyapple-mcp
+[uv](https://docs.astral.sh/uv/) keeps pyapple-mcp in an isolated virtual environment so it never touches your system Python.
 
-# Run the setup helper to configure Claude Desktop
-pyapple-mcp-setup
-```
-
-The setup helper will:
-- Find your pyapple-mcp installation
-- Locate your Claude Desktop config file
-- Automatically add the configuration
-- Display helpful setup information
-
-### Manual Installation
-
-1. **Install pyapple-mcp**:
+1. **Clone and set up the project**:
    ```bash
-   pip install pyapple-mcp
+   git clone https://github.com/pyapple-mcp/pyapple-mcp.git
+   cd pyapple-mcp
+   uv venv
+   uv pip install -e .
    ```
 
 2. **Configure Claude Desktop** by editing `~/Library/Application Support/Claude Desktop/claude_desktop_config.json`:
@@ -47,13 +36,52 @@ The setup helper will:
    {
      "mcpServers": {
        "pyapple": {
-         "command": "pyapple-mcp"
+         "command": "/path/to/pyapple-mcp/.venv/bin/python",
+         "args": ["-m", "pyapple_mcp.server"]
        }
      }
    }
    ```
 
+   Replace `/path/to/pyapple-mcp` with the actual path to your cloned repository.
+
 3. **Restart Claude Desktop** to load the new configuration.
+
+> **Why point to `.venv/bin/python` directly?** The Mail and Calendar handlers read Apple SQLite databases directly, which requires Full Disk Access (see [Permissions Setup](#permissions-setup)). macOS grants FDA per-binary, so using a stable venv Python path lets you grant FDA once. If you use `uv run` instead, the underlying Python binary can change when uv updates, breaking your FDA grant.
+
+### Alternative: uv run (No Persistent venv)
+
+If you don't need Mail database access or have already handled FDA, you can skip the explicit venv and let `uv run` manage everything:
+
+```json
+{
+  "mcpServers": {
+    "pyapple": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "/path/to/pyapple-mcp",
+        "pyapple-mcp"
+      ]
+    }
+  }
+}
+```
+
+### Using pip (Not Recommended)
+
+This installs directly into your active Python environment, which can cause dependency conflicts over time.
+
+```bash
+pip install pyapple-mcp
+```
+
+You can then run the setup helper to configure Claude Desktop automatically:
+
+```bash
+pyapple-mcp-setup
+```
 
 ## Usage Examples
 
@@ -97,14 +125,15 @@ You can chain commands together for complex workflows:
    cd pyapple-mcp
    ```
 
-2. **Install dependencies**:
+2. **Create a venv and install with dev dependencies**:
    ```bash
-   pip install -e ".[dev]"
+   uv venv
+   uv pip install -e ".[dev]"
    ```
 
 3. **Run the development server**:
    ```bash
-   python -m pyapple_mcp.server
+   .venv/bin/python -m pyapple_mcp.server
    ```
 
 ### Testing with MCP Inspector
@@ -134,13 +163,33 @@ mcp dev pyapple_mcp/server.py --with httpx --with beautifulsoup4
 
 On first use, macOS will prompt for various permissions. Grant access to:
 
-1. **Contacts** - for contact search functionality
-2. **Calendar** - for calendar event management
-3. **Messages** - for sending/reading messages  
-4. **Mail** - for email operations
-5. **Notes** - for notes access
-6. **Reminders** - for reminder management
-7. **Automation** - for controlling applications via AppleScript
+1. **Contacts** — for contact search functionality
+2. **Calendar** — for calendar event management
+3. **Messages** — for sending/reading messages
+4. **Mail** — for email operations
+5. **Notes** — for notes access
+6. **Reminders** — for reminder management
+7. **Automation** — for controlling applications via AppleScript
+
+### Full Disk Access (Required for Mail and Calendar)
+
+The Mail handler reads Apple Mail's SQLite database (`~/Library/Mail/V10/MailData/Envelope Index`) and `.emlx` message files directly for performance. The Calendar handler reads the Calendar SQLite database (`~/Library/Group Containers/group.com.apple.calendar/Calendar.sqlitedb`) directly. macOS protects both paths behind Full Disk Access (FDA).
+
+To grant FDA:
+
+1. Identify the Python binary the server is using:
+   ```bash
+   # If using the recommended venv setup:
+   readlink -f /path/to/pyapple-mcp/.venv/bin/python
+
+   # If using uv run:
+   uv run --directory /path/to/pyapple-mcp python -c "import sys; print(sys.executable)"
+   ```
+2. Open **System Settings → Privacy & Security → Full Disk Access**.
+3. Click **+**, press **Cmd+Shift+G**, paste the Python binary path, and add it.
+4. Restart Claude Desktop.
+
+> **Tip:** Granting FDA to Claude Desktop or your terminal app (e.g., iTerm2) may also propagate to child processes, though this is not guaranteed on all macOS versions.
 
 ## Configuration
 
@@ -167,9 +216,17 @@ You can customize pyapple-mcp behavior by creating a config file at `~/.config/p
 - Grant access to the required applications
 - Restart Claude Desktop
 
+**Mail "Cannot access" or empty results**:
+- This almost always means the Python binary lacks Full Disk Access. See [Permissions Setup](#full-disk-access-required-for-mail-and-calendar).
+- If using `uv run`, the Python binary path may have changed after an update. Re-check with `uv run ... python -c "import sys; print(sys.executable)"` and re-grant FDA.
+
+**Calendar "No calendars found" but Calendar.app has data**:
+- This almost always means the Python binary lacks Full Disk Access. See [Permissions Setup](#full-disk-access-required-for-mail-and-calendar).
+- If using `uv run`, the Python binary path may have changed after an update. Re-check with `uv run ... python -c "import sys; print(sys.executable)"` and re-grant FDA.
+
 **Module Import Errors**:
 - Ensure you're running on macOS
-- Install PyObjC frameworks: `pip install pyobjc`
+- Install PyObjC frameworks: `uv pip install pyobjc`
 
 **AppleScript Execution Errors**:
 - Check that the target applications are installed
@@ -184,7 +241,7 @@ You can customize pyapple-mcp behavior by creating a config file at `~/.config/p
 
 Run with debug logging:
 ```bash
-PYAPPLE_DEBUG=1 python -m pyapple_mcp.server
+PYAPPLE_DEBUG=1 .venv/bin/python -m pyapple_mcp.server
 ```
 
 ## Architecture

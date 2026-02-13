@@ -35,7 +35,7 @@ class CalendarHandler:
         """Initialize the calendar handler."""
         self.app_name = "Calendar"
         self.db_path = os.path.expanduser(
-            "~/Library/Calendars/Calendar.sqlitedb"
+            "~/Library/Group Containers/group.com.apple.calendar/Calendar.sqlitedb"
         )
     
     def get_available_calendars(self) -> List[Dict[str, Any]]:

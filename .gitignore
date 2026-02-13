@@ -192,4 +192,4 @@ Temporary Items
 .apdisk
 
 # Context files (project specific)
-contexts/ 
+contexts/ .python-version
