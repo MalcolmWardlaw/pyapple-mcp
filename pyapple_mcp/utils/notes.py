@@ -188,8 +188,7 @@ class NotesHandler:
                     set targetFolder to folder "{safe_folder}" of targetAccount
                 on error
                     -- Folder doesn't exist, create it
-                    set targetFolder to make new folder with properties \
-                        {{name:"{safe_folder}"}} at targetAccount
+                    set targetFolder to make new folder with properties {{name:"{safe_folder}"}} at targetAccount
                 end try
                 
                 -- Create the note first, then set properties
@@ -197,10 +196,8 @@ class NotesHandler:
                 set body of newNote to "{safe_body}"
                 set name of newNote to "{safe_title}"
                 
-                return (
-                    "Success: Note '" & "{safe_title}" & "' created in folder '" 
-                    & "{safe_folder}" & "'"
-                )
+                return "Success: Note '" & "{safe_title}" & "' created in folder '" & "{safe_folder}" & "'"
+
                 
             on error errMsg
                 return "Error: " & errMsg

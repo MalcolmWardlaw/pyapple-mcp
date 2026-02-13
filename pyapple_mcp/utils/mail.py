@@ -145,7 +145,9 @@ class MailHandler:
             
         except Exception as e:
             logger.error(f"Database error: {e}")
-            return []
+            import traceback
+            traceback.print_exc()
+            return [{"id": 0, "sender": "DEBUG", "subject": f"DB ERROR: {e}", "date": "", "mailbox": str(self.envelope_db), "content": f"exists={self.envelope_db.exists()}", "read": False}]
         
         return emails
     
